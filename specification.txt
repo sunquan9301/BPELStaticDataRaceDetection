@@ -1,0 +1,30 @@
+1.解析xml文件  使用Sax解析器，存入list中。
+2.一个bpel可以表示为（G,V,L） //G表示活动集合,V表示Var集合,L表示Link集合
+	bpel文件由基本活动组成，通过变量和中间变量构成流程，通过link来联系基本活动
+3.G:[基本活动，组合活动];
+4.基本活动记录【GID,TID,InputVar,Output,LogicClock,Lock,LinkList】
+	Lock：CS,Isolate
+	只记录在flow并发框架中的基本活动
+5.获取共享变量：
+	1.遍历所有的基本活动记录
+	2.取基本活动所访问的输入值，或输出值，如果输入或输出值为expression,跳到4，否则到3
+	3.对输入，输出变量加入共享变量集合
+	4.对于expression,做一开始记录的var变量进行最大长度匹配，得到共享变量加入集合
+	5.对共享变量集合去重。
+6.获取读写变量集合。
+ var->read U write
+ 
+  1.遍历活动
+  2.获取inputVar加入var,相应的活动信息加入read.
+  3.获取outputVar加入var,相应的活动信息加入write.
+  
+  4.对assign进行处理 如果assign包含多个copy活动，则把copy活动当做基本活动。
+  
+7.HB图构造
+
+1.intra  多叉树结构
+	根节点为flow
+	传入参数startClock,endClock
+	
+2.inter
+ 

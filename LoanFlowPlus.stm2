@@ -1,0 +1,13 @@
+;orderBook.bpel
+(declare-const OG3 Int)
+(declare-const OG6 Int)
+(declare-const OG2 Int)
+(declare-const OG7 Int)
+
+
+(assert(< OG6 OG7))
+(assert(< OG2 OG3))
+
+
+
+

@@ -1,0 +1,22 @@
+bpel 分析规范
+记录:
+基本活动
+receive
+invoke
+assign
+组合活动
+switch:条件只考虑switch执行的条件
+while:循环考虑while
+scope:
+squence:
+
+intra
+logic order
+inter
+link constraint
+scope isolate
+correlation set
+
+
+
+

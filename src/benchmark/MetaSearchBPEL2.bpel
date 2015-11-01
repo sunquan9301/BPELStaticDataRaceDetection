@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+BPEL Process Definition
+Edited using ActiveBPEL(r) Designer Version 4.1.0 (http://www.active-endpoints.com)
+
+Original version: Copyright (C) 2006 Philip Meyer
+Modifications for ActiveBPEL 4.1: Copyright (C) 2008-2009 Antonio García Domínguez
+-->
+<process xmlns:bpel="http://docs.oasis-open.org/wsbpel/2.0/process/executable" 
+	xmlns:bpelx="http://schemas.oracle.com/bpel/extension" 
+	xmlns:bpws="http://schemas.xmlsoap.org/ws/2003/03/business-process/" 
+	xmlns:client="http://examples.bpelunit.org/MetaSearch" 
+	xmlns:ext="http://www.activebpel.org/2006/09/bpel/extension/query_handling" 
+	xmlns:ldap="http://schemas.oracle.com/xpath/extension/ldap" 
+	xmlns:ns1="http://examples.bpelunit.org/GoogleBridge" 
+	xmlns:ns2="http://schemas.microsoft.com/MSNSearch/2005/09/fex" 
+	xmlns:ns4="http://schemas.xmlsoap.org/soap/encoding/" 
+	xmlns:ora="http://schemas.oracle.com/xpath/extension" 
+	xmlns:orcl="http://www.oracle.com/XSL/Transform/java/oracle.tip.pc.services.functions.ExtFunc" 
+	xmlns:xp20="http://www.oracle.com/XSL/Transform/java/oracle.tip.pc.services.functions.Xpath20" 
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+		expressionLanguage="urn:oasis:names:tc:wsbpel:2.0:sublang:xpath1.0" 
+		name="MetaSearch" queryLanguage="http://www.w3.org/TR/1999/REC-xpath-19991116" 
+		suppressJoinFailure="yes" targetNamespace="http://examples.bpelunit.org/MetaSearch">
+
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="GoogleBridge.wsdl" namespace="http://examples.bpelunit.org/GoogleBridge"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="MetaSearch.wsdl" namespace="http://examples.bpelunit.org/MetaSearch"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="msnsearch.wsdl" namespace="http://schemas.microsoft.com/MSNSearch/2005/09/fex"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="msnsearchRef.wsdl" namespace="http://schemas.microsoft.com/MSNSearch/2005/09/fex"/>
+   <partnerLinks>
+      <partnerLink myRole="MetaSearchProvider" name="client" partnerLinkType="client:MetaSearch"/>
+      <partnerLink name="Google" partnerLinkType="ns1:GoogleBridgePartnerLinkType" partnerRole="GoogleBridgeProvider"/>
+      <partnerLink name="MSN" partnerLinkType="ns2:MSNSearchPortType_PL" partnerRole="MSNSearchPortType_Role"/>
+   </partnerLinks>
+   <variables>
+      <variable messageType="client:MetaSearchRequestMessage" name="inputVariable" />
+      <variable messageType="client:MetaSearchResponseMessage" name="outputVariable"/>
+      <variable messageType="ns2:SearchMessage" name="MSNSearch_Search_InputVariable"/>
+      <variable messageType="ns2:SearchResponseMessage" name="MSNSearch_Search_OutputVariable"/>
+      <variable messageType="ns1:doGoogleSearch" name="Google_doGoogleSearch_InputVariable"/>
+      <variable messageType="ns1:doGoogleSearchResponse" name="Google_doGoogleSearch_OutputVariable"/>
+      <variable name="done_google" type="xsd:boolean"/>
+      <variable name="done_msn" type="xsd:boolean"/>
+      <variable messageType="client:MetaSearchRequestFault" name="generalFault"/>
+   </variables>
+   <faultHandlers>
+      <catchAll>
+         <sequence name="Sequence_15">
+            <assign name="CreateFault">
+            	<copy>
+                   <from><literal>
+                     <client:MetaSearchProcessFault xmlns:client="http://examples.bpelunit.org/MetaSearch" 
+                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+			 <client:message>client:message</client:message>
+			 <client:root>client:root</client:root>
+			 </client:MetaSearchProcessFault>
+		   </literal></from>
+                 <to variable="generalFault" part="payload"></to>
+                </copy>
+                    
+                    <copy>
+                  <from>'Problem while executing MetaSearch'</from>
+                  <to part="payload" variable="generalFault">
+                     <query>client:message</query>
+                  </to>
+               </copy>
+               <copy>
+                  <from>'See instance for detail'</from>
+                  <to part="payload" variable="generalFault">
+                     <query>client:root</query>
+                  </to>
+               </copy>
+                    
+                </assign>
+            <reply faultName="client:MetaSearchFault" name="ReplyFault" operation="process" partnerLink="client" portType="client:MetaSearch" variable="generalFault"/>
+         </sequence>
+      </catchAll>
+   </faultHandlers>
+   <sequence name="main">
+      <receive createInstance="yes" name="receiveInput" operation="process" partnerLink="client" portType="client:MetaSearch" variable="inputVariable"/>
+      <flow name="Flow_1">
+         <sequence name="Sequence_2">
+            <scope name="GoogleSearchScope">
+               <faultHandlers>
+                  <catchAll>
+                     <assign name="GoogleNotDone">
+                        <copy>
+                           <from>false()</from>
+                           <to variable="done_google"/>
+                        </copy>
+                     </assign>
+                  </catchAll>
+               </faultHandlers>
+               <sequence name="Sequence_3">
+                  <assign name="InitializeGoogleValues">
+                            <copy>
+                                <from><literal>
+									<typens:GoogleSearchRequestElement 
+									xmlns:typens="http://examples.bpelunit.org/GoogleBridge" 
+									xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+									  <key>key</key>
+									  <query>query</query>
+									  <restrict>restrict</restrict>
+									  <lr>lr</lr>
+									  <start>0</start>
+									  <max>0</max>
+									</typens:GoogleSearchRequestElement>
+								  </literal></from>
+                                <to variable="Google_doGoogleSearch_InputVariable" part="request"></to>
+                            </copy>
+                            <copy>
+                        <from>string('insert KEY here')</from>
+                        <to part="request" variable="Google_doGoogleSearch_InputVariable">
+                           <query>key</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from part="payload" variable="inputVariable">
+                           <query>client:query</query>
+                        </from>
+                        <to part="request" variable="Google_doGoogleSearch_InputVariable">
+                           <query>query</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from part="payload" variable="inputVariable">
+                           <query>client:country</query>
+                        </from>
+                        <to part="request" variable="Google_doGoogleSearch_InputVariable">
+                           <query>restrict</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from part="payload" variable="inputVariable">
+                           <query>client:language</query>
+                        </from>
+                        <to part="request" variable="Google_doGoogleSearch_InputVariable">
+                           <query>lr</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>number(0)</from>
+                        <to part="request" variable="Google_doGoogleSearch_InputVariable">
+                           <query>start</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>number(10)</from>
+                        <to part="request" variable="Google_doGoogleSearch_InputVariable">
+                           <query>max</query>
+                        </to>
+                     </copy>
+                            
+                        </assign>
+                  <invoke inputVariable="Google_doGoogleSearch_InputVariable" name="Google" operation="doGoogleSearch" outputVariable="Google_doGoogleSearch_OutputVariable" partnerLink="Google" portType="ns1:GoogleSearchPort"/>
+                  <assign name="GoogleDone">
+                     <copy>
+                        <from>true()</from>
+                        <to variable="done_google"/>
+                     </copy>
+                  </assign>
+               </sequence>
+            </scope>
+         </sequence>
+         <sequence name="Sequence_1">
+            <scope name="MSNSearchScope">
+               <faultHandlers>
+                  <catchAll>
+                     <assign name="MSNNotDone">
+                        <copy>
+                           <from>false()</from>
+                           <to variable="done_msn"/>
+                        </copy>
+                     </assign>
+                  </catchAll>
+               </faultHandlers>
+               <sequence name="Sequence_4">
+                  <assign name="InitializeMSNValues">
+                            <copy>
+                                <from><literal>
+                                <tns:Search xmlns:tns="http://schemas.microsoft.com/MSNSearch/2005/09/fex" 
+                                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+									  <tns:Request>
+									    <tns:AppID>tns:AppID</tns:AppID>
+									    <tns:Query>tns:Query</tns:Query>
+									    <tns:CultureInfo>tns:CultureInfo</tns:CultureInfo>
+									    <tns:SafeSearch>Moderate</tns:SafeSearch>
+									    <tns:Flags>None</tns:Flags>
+									    <tns:Location>
+									      <tns:Latitude>0.0</tns:Latitude>
+									      <tns:Longitude>0.0</tns:Longitude>
+									      <tns:Radius>5.0</tns:Radius>
+									    </tns:Location>
+									    <tns:Requests>
+									      <tns:SourceRequest>
+									        <tns:Source>Web</tns:Source>
+									        <tns:Offset>0</tns:Offset>
+									        <tns:Count>10</tns:Count>
+									        <tns:ResultFields>Title Description Url</tns:ResultFields>
+									      </tns:SourceRequest>
+									    </tns:Requests>
+									  </tns:Request>
+									</tns:Search>
+								  </literal></from>
+                                <to variable="MSNSearch_Search_InputVariable" part="parameters"></to>
+                            </copy>
+                            <copy>
+                        <from>string('Insert key here')</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:AppID</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from part="payload" variable="inputVariable">
+                           <query>client:query</query>
+                        </from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:Query</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>'dummy'</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:CultureInfo</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>'Off'</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:SafeSearch</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>'None'</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:Flags</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>'Web'</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:Requests/ns2:SourceRequest/ns2:Source</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>number(0)</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:Requests/ns2:SourceRequest/ns2:Offset</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>number(15)</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:Requests/ns2:SourceRequest/ns2:Count</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>'All'</from>
+                        <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                           <query>ns2:Request/ns2:Requests/ns2:SourceRequest/ns2:ResultFields</query>
+                        </to>
+                     </copy>
+                            
+                        </assign>
+                  <if name="Switch_10">
+                     <condition>(($inputVariable.payload/client:country != '') and ($inputVariable.payload/client:language != ''))</condition>
+                     <assign name="ConcatLangAndCountry">
+                        <copy>
+                           <from>concat(concat($inputVariable.payload/client:language, '-'), $inputVariable.payload/client:country)</from>
+                           <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                              <query>ns2:Request/ns2:CultureInfo</query>
+                           </to>
+                        </copy>
+                     </assign>
+                     <else>
+                        <assign name="UseDefaulten-US">
+                           <copy>
+                              <from>'en-US'</from>
+                              <to part="parameters" variable="MSNSearch_Search_InputVariable">
+                                 <query>ns2:Request/ns2:CultureInfo</query>
+                              </to>
+                           </copy>
+                        </assign>
+                     </else>
+                  </if>
+                  <invoke inputVariable="MSNSearch_Search_InputVariable" name="MSNSearch" operation="Search" outputVariable="MSNSearch_Search_OutputVariable" partnerLink="MSN" portType="ns2:MSNSearchPortType"/>
+                  <assign name="MSNDone">
+                     <copy>
+                        <from>true()</from>
+                        <to variable="done_msn"/>
+                     </copy>
+                  </assign>
+               </sequence>
+            </scope>
+         </sequence>
+      </flow>
+      <if name="IsDoneAtAll">
+         <condition>((boolean($done_google) = true()) or (boolean($done_msn) = true()))</condition>
+         <sequence name="Sequence_9">
+            <scope name="IterationScope">
+               <variables>
+                  <variable name="counter" type="xsd:int" />
+                  <variable name="maxGoogle" type="xsd:int" />
+                  <variable name="maxMSN" type="xsd:int" />
+                  <variable element="client:result" name="currentItem" />
+                  <variable element="ns2:Result" name="tempMSNResult"/>
+                  <variable element="ns1:result" name="tempGoogleResult"/>
+                  <variable name="added" type="xsd:int" />
+                  <variable name="div2counter" type="xsd:int" />
+                  <variable name="addedInScope" type="xsd:boolean" />
+               </variables>
+               <sequence name="Sequence_5">
+                  <assign name="CounterToOne">
+                            <copy>
+                                <from><literal>
+                                <client:MetaSearchProcessResponse 
+                                xmlns:client="http://examples.bpelunit.org/MetaSearch" 
+                                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+									  <client:noResult>0</client:noResult>
+									  <client:noFromGoogle>0</client:noFromGoogle>
+									  <client:noFromMSN>0</client:noFromMSN>
+									</client:MetaSearchProcessResponse>
+								  </literal></from>
+                                <to variable="outputVariable" part="payload"></to>
+                            </copy>
+                            <copy>
+                        <from>number(1)</from>
+                        <to variable="counter"/>
+                     </copy>
+                     <copy>
+                        <from>number(0)</from>
+                        <to variable="added"/>
+                     </copy>
+                     <copy>
+                        <from>number(0)</from>
+                        <to variable="div2counter"/>
+                     </copy>
+                     <copy>
+                        <from>number(0)</from>
+                        <to part="payload" variable="outputVariable">
+                           <query>client:noResult</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>number(0)</from>
+                        <to part="payload" variable="outputVariable">
+                           <query>client:noFromGoogle</query>
+                        </to>
+                     </copy>
+                     <copy>
+                        <from>number(0)</from>
+                        <to part="payload" variable="outputVariable">
+                           <query>client:noFromMSN</query>
+                        </to>
+                     </copy>
+                            
+                        </assign>
+                  <flow name="Flow_2">
+                     <sequence name="Sequence_11">
+                        <if name="Switch_2">
+                           <condition>$done_msn</condition>
+                           <assign name="GetMaxMSDNNo">
+                              <copy>
+                                 <from>count($MSNSearch_Search_OutputVariable.parameters/ns2:Response/ns2:Responses/ns2:SourceResponse/ns2:Results/ns2:Result)</from>
+                                 <to variable="maxMSN"/>
+                              </copy>
+                              <copy>
+                                 <from variable="maxMSN"/>
+                                 <to part="payload" variable="outputVariable">
+                                    <query>client:noFromMSN</query>
+                                 </to>
+                              </copy>
+                           </assign>
+                           <else>
+                              <assign name="MaxNo0">
+                                 <copy>
+                                    <from>number(0)</from>
+                                    <to variable="maxMSN"/>
+                                 </copy>
+                              </assign>
+                           </else>
+                        </if>
+                     </sequence>
+                     <sequence name="Sequence_10">
+                        <if name="Switch_1">
+                           <condition>$done_google</condition>
+                           <assign name="GetMaxGoogleNo">
+                              <copy>
+                                 <from>count($Google_doGoogleSearch_OutputVariable.return/result)</from>
+                                 <to variable="maxGoogle"/>
+                              </copy>
+                              <copy>
+                                 <from variable="maxGoogle"/>
+                                 <to part="payload" variable="outputVariable">
+                                    <query>client:noFromGoogle</query>
+                                 </to>
+                              </copy>
+                           </assign>
+                           <else>
+                              <assign name="MaxNo0">
+                                 <copy>
+                                    <from>number(0)</from>
+                                    <to variable="maxGoogle"/>
+                                 </copy>
+                              </assign>
+                           </else>
+                        </if>
+                     </sequence>
+                  </flow>
+                  <while name="While_1">
+                     <condition>((($counter &lt;= $maxGoogle) or ($counter &lt;= $maxMSN)) and not(($added &gt;= $inputVariable.payload/client:maxResults)))</condition>
+                     <sequence name="Sequence_6">
+                        <assign name="AddedInScopeFalse">
+                           <copy>
+                              <from>false()</from>
+                              <to variable="addedInScope"/>
+                           </copy>
+                        </assign>
+                        <if name="Switch_5">
+                           <condition>(($div2counter mod 2) = 0)</condition>
+                           <if name="Switch_3">
+                              <condition>($counter &lt;= $maxGoogle)</condition>
+                              <sequence name="Sequence_7">
+                                 <assign name="AssignTempGoogleElement">
+                                    <copy>
+                                     <from><literal>
+                                      <typens:result xmlns:typens="http://examples.bpelunit.org/GoogleBridge" 
+                                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+										  <url>url</url>
+										  <title>title</title>
+										  <snippet>snippet</snippet>
+										</typens:result>
+										</literal></from>
+                                      <to variable="tempGoogleResult"></to>
+                                    </copy>
+                                    <copy>
+                                       <from>$Google_doGoogleSearch_OutputVariable.return/result[$counter]</from>
+                                       <to variable="tempGoogleResult"/>
+                                    </copy>
+                                                
+                                </assign>
+                                 <assign name="CreateGoogleElement">
+                                    <copy>
+                                      <from><literal>
+										<client:result xmlns:client="http://examples.bpelunit.org/MetaSearch" 
+										xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+											  <client:url>client:url</client:url>
+											  <client:title>client:title</client:title>
+											  <client:snippet>client:snippet</client:snippet>
+											  <client:from>client:from</client:from>
+											</client:result>
+											</literal></from>
+                                        <to variable="currentItem"></to>
+                                       </copy>
+                                      <copy>
+                                       <from variable="tempGoogleResult">
+                                          <query>url</query>
+                                       </from>
+                                       <to variable="currentItem">
+                                          <query>client:url</query>
+                                       </to>
+                                    </copy>
+                                    <copy>
+                                       <from variable="tempGoogleResult">
+                                          <query>title</query>
+                                       </from>
+                                       <to variable="currentItem">
+                                          <query>client:title</query>
+                                       </to>
+                                    </copy>
+                                    <copy>
+                                       <from variable="tempGoogleResult">
+                                          <query>snippet</query>
+                                       </from>
+                                       <to variable="currentItem">
+                                          <query>client:snippet</query>
+                                       </to>
+                                    </copy>
+                                    <copy>
+                                       <from>'Google'</from>
+                                       <to variable="currentItem">
+                                          <query>client:from</query>
+                                       </to>
+                                    </copy>
+                                                
+                                            </assign>
+                                 <assign name="AddedInScopeTrue">
+                                    <copy>
+                                       <from>true()</from>
+                                       <to variable="addedInScope"/>
+                                    </copy>
+                                 </assign>
+                              </sequence>
+                              <else>
+                                 <empty/>
+                              </else>
+                           </if>
+                           <else>
+                              <sequence name="Sequence_12">
+                                 <if name="Switch_4">
+                                    <condition>($counter &lt;= $maxMSN)</condition>
+                                    <sequence name="Sequence_8">
+                                       <assign name="AssignTempMSNElement">
+                                         <copy>
+                                          <from><literal>
+                                            <tns:Result xmlns:tns="http://schemas.microsoft.com/MSNSearch/2005/09/fex" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+												  <tns:Title>tns:Title</tns:Title>
+												  <tns:Description>tns:Description</tns:Description>
+												  <tns:Url>tns:Url</tns:Url>
+												  <tns:DisplayUrl>tns:DisplayUrl</tns:DisplayUrl>
+												  <tns:CacheUrl>tns:CacheUrl</tns:CacheUrl>
+												  <tns:Source>tns:Source</tns:Source>
+												  <tns:SearchTags>tns:SearchTags</tns:SearchTags>
+												</tns:Result>
+												</literal></from>
+                                             <to variable="tempMSNResult"></to>
+                                           </copy>
+                                           <copy>
+                                             <from>$MSNSearch_Search_OutputVariable.parameters/ns2:Response/ns2:Responses/ns2:SourceResponse/ns2:Results/ns2:Result[$counter]</from>
+                                             <to variable="tempMSNResult"/>
+                                          </copy>
+                                       </assign>
+                                       <assign name="CreateMSNElement">
+                                         <copy>
+                                           <from><literal>
+                                           <client:result xmlns:client="http://examples.bpelunit.org/MetaSearch" 
+                                           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+											  <client:url>client:url</client:url>
+											  <client:title>client:title</client:title>
+											  <client:snippet>client:snippet</client:snippet>
+											  <client:from>client:from</client:from>
+											</client:result>
+											</literal></from>
+                                             <to variable="currentItem"></to>
+                                           </copy>
+                                           <copy>
+                                             <from variable="tempMSNResult">
+                                                <query>ns2:Url</query>
+                                             </from>
+                                             <to variable="currentItem">
+                                                <query>client:url</query>
+                                             </to>
+                                          </copy>
+                                          <copy>
+                                             <from variable="tempMSNResult">
+                                                <query>ns2:Title</query>
+                                             </from>
+                                             <to variable="currentItem">
+                                                <query>client:title</query>
+                                             </to>
+                                          </copy>
+										  <copy>
+										    <from>'dummy'</from>
+										    <to variable="currentItem">
+										      <query>client:snippet</query>
+										    </to>
+										  </copy>
+                                          <copy>
+                                             <from>'MSN'</from>
+                                             <to variable="currentItem">
+                                                <query>client:from</query>
+                                             </to>
+                                          </copy>
+                                        </assign>
+                                       <if name="Switch_9">
+                                          <condition>(count($tempMSNResult/ns2:Description) &gt; 0)</condition>
+                                          <assign name="AddDescription">
+                                             <copy>
+                                                <from variable="tempMSNResult">
+                                                   <query>ns2:Description</query>
+                                                </from>
+                                                <to variable="currentItem">
+                                                   <query>client:snippet</query>
+                                                </to>
+                                             </copy>
+                                          </assign>
+                                          <else>
+                                             <empty/>
+                                          </else>
+                                       </if>
+                                       <assign name="AddedInScopeTrue">
+                                          <copy>
+                                             <from>true()</from>
+                                             <to variable="addedInScope"/>
+                                          </copy>
+                                       </assign>
+                                    </sequence>
+                                    <else>
+                                       <empty/>
+                                    </else>
+                                 </if>
+                                 <assign name="IncreaseCounterEverySecondTime">
+                                    <copy>
+                                       <from>($counter + 1)</from>
+                                       <to variable="counter"/>
+                                    </copy>
+                                 </assign>
+                              </sequence>
+                           </else>
+                        </if>
+                        <if name="Switch_8">
+                           <condition>($addedInScope = true())</condition>
+                           <scope name="CheckDuplicates">
+                              <variables>
+                                 <variable name="currentResultNumber" type="xsd:int"/>
+                                 <variable element="client:result" name="tempItem"/>
+                                 <variable name="doAdd" type="xsd:boolean"/>
+                                 <variable name="maxIter" type="xsd:int"/>
+                              </variables>
+                              <sequence name="CheckForDuplicates">
+                                 <assign name="InitializeCounter">
+                                    <copy>
+                                       <from>number(1)</from>
+                                       <to variable="currentResultNumber"/>
+                                    </copy>
+                                    <copy>
+                                       <from>true()</from>
+                                       <to variable="doAdd"/>
+                                    </copy>
+                                    <copy>
+                                       <from>count($outputVariable.payload/client:result)</from>
+                                       <to variable="maxIter"/>
+                                    </copy>
+                                 </assign>
+                                 <while name="DuplicateWhile">
+                                    <condition>($currentResultNumber &lt;= $maxIter)</condition>
+                                    <sequence name="Sequence_14">
+                                       <assign name="getCurrentElement">
+                                          <copy>
+                                            <from><literal>
+                                              <client:result xmlns:client="http://examples.bpelunit.org/MetaSearch" 
+                                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+												  <client:url>client:url</client:url>
+												  <client:title>client:title</client:title>
+												  <client:snippet>client:snippet</client:snippet>
+												  <client:from>client:from</client:from>
+												</client:result>
+											  </literal></from>
+                                            <to variable="tempItem"></to>
+                                          </copy>
+                                          <copy>
+                                             <from>$outputVariable.payload/client:result[$currentResultNumber]</from>
+                                             <to variable="tempItem"/>
+                                          </copy>
+                                       </assign>
+                                       <if name="Switch_6">
+                                          <condition>($tempItem/client:url = $currentItem/client:url)</condition>
+                                          <assign name="doNotAdd">
+                                             <copy>
+                                                <from>false()</from>
+                                                <to variable="doAdd"/>
+                                             </copy>
+                                          </assign>
+                                          <else>
+                                             <empty/>
+                                          </else>
+                                       </if>
+                                       <assign name="IncreaseCounter">
+                                          <copy>
+                                             <from>($currentResultNumber + 1)</from>
+                                             <to variable="currentResultNumber"/>
+                                          </copy>
+                                       </assign>
+                                    </sequence>
+                                 </while>
+                                 <if name="Switch_7">
+                                    <condition>($doAdd = true())</condition>
+                                    <sequence name="Sequence_16">
+                                          <assign name="AddFirstElement">
+                                             <copy>
+                                                <from>
+													<![CDATA[doXslTransform("project:/xslt/results.xsl", $outputVariable.payload, "currentItem", $currentItem)]]>
+												</from>
+                                                <to part="payload" variable="outputVariable"/>
+                                             </copy>
+                                          <copy>
+                                             <from>($added + 1)</from>
+                                             <to variable="added"/>
+                                          </copy>
+                                       </assign>
+                                    </sequence>
+                                    <else>
+                                       <empty/>
+                                    </else>
+                                 </if>
+                              </sequence>
+                           </scope>
+                           <else>
+                              <empty/>
+                           </else>
+                        </if>
+                        <assign name="IncreaseDiv2Counter">
+                           <copy>
+                              <from>($div2counter + 1)</from>
+                              <to variable="div2counter"/>
+                           </copy>
+                        </assign>
+                     </sequence>
+                  </while>
+                  <assign name="CopyResultNumber">
+                     <copy>
+                        <from variable="added"/>
+                        <to part="payload" variable="outputVariable">
+                           <query>client:noResult</query>
+                        </to>
+                     </copy>
+                  </assign>
+               </sequence>
+            </scope>
+         </sequence>
+         <else>
+            <assign name="AssignZeroToOutput">
+                    <copy>
+                        <from><literal>
+                        <client:MetaSearchProcessResponse xmlns:client="http://examples.bpelunit.org/MetaSearch" 
+                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+							  <client:noResult>0</client:noResult>
+							  <client:noFromGoogle>0</client:noFromGoogle>
+							  <client:noFromMSN>0</client:noFromMSN>
+							</client:MetaSearchProcessResponse>
+						  </literal></from>
+                        <to variable="outputVariable" part="payload"></to>
+                    </copy>
+                    <copy>
+                  <from>number(0)</from>
+                  <to part="payload" variable="outputVariable">
+                     <query>client:noResult</query>
+                  </to>
+               </copy>
+               <copy>
+                  <from>number(0)</from>
+                  <to part="payload" variable="outputVariable">
+                     <query>client:noFromGoogle</query>
+                  </to>
+               </copy>
+               <copy>
+                  <from>number(0)</from>
+                  <to part="payload" variable="outputVariable">
+                     <query>client:noFromMSN</query>
+                  </to>
+               </copy>
+                    
+                </assign>
+         </else>
+      </if>
+      <reply name="replyOutput" operation="process" partnerLink="client" portType="client:MetaSearch" variable="outputVariable"/>
+   </sequence>
+</process>

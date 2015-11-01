@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<process xmlns:approvalplt="http://docs.active-endpoints.com/sample/wsdl/loanApproval/2008/08/loanApprovalPLT.wsdl" xmlns:approvews="http://docs.active-endpoints.com/sample/wsdl/loanApproval/2008/02/loanApproval.wsdl" xmlns:bpel="http://docs.oasis-open.org/wsbpel/2.0/process/executable" xmlns:loan="http://schemas.active-endpoints.com/sample/LoanRequest/2008/02/loanRequest.xsd" xmlns:loanmsg="http://docs.active-endpoints.com/sample/wsdl/loanMessages/2008/02/loanMessages.wsdl" xmlns:loanplt="http://docs.active-endpoints.com/sample/wsdl/loanprocess/2008/07/loanProcessPLT.wsdl" xmlns:loanprocess="http://docs.active-endpoints.com/sample/wsdl/loanprocess/2008/02/loanProcess.wsdl" xmlns:partners="http://docs.active-endpoints.com/sample/wsdl/loanPartners/2008/07/loanPartnerLinkTypes.wsdl" xmlns:riskplt="http://docs.active-endpoints.com/sample/wsdl/riskAssessment/2008/07/riskAssessmentPLT.wsdl" xmlns:riskws="http://docs.active-endpoints.com/sample/wsdl/riskAssessment/2008/02/riskAssessment.wsdl" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="loanProcessCompleted" suppressJoinFailure="yes" targetNamespace="http://docs.active-endpoints.com/sample/bpel/loanprocess/2008/02/loanProcessCompleted.bpel">
+   <import importType="http://www.w3.org/2001/XMLSchema" location="../schema/loanRequest.xsd" namespace="http://schemas.active-endpoints.com/sample/LoanRequest/2008/02/loanRequest.xsd"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="../wsdl/loanProcess.wsdl" namespace="http://docs.active-endpoints.com/sample/wsdl/loanprocess/2008/02/loanProcess.wsdl"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="../wsdl/loanApproval.wsdl" namespace="http://docs.active-endpoints.com/sample/wsdl/loanApproval/2008/02/loanApproval.wsdl"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="../wsdl/riskAssessment.wsdl" namespace="http://docs.active-endpoints.com/sample/wsdl/riskAssessment/2008/02/riskAssessment.wsdl"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="../wsdl/loanMessages.wsdl" namespace="http://docs.active-endpoints.com/sample/wsdl/loanMessages/2008/02/loanMessages.wsdl"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="../wsdl/loanApprovalPLT.wsdl" namespace="http://docs.active-endpoints.com/sample/wsdl/loanApproval/2008/08/loanApprovalPLT.wsdl"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="../wsdl/riskAssessmentPLT.wsdl" namespace="http://docs.active-endpoints.com/sample/wsdl/riskAssessment/2008/07/riskAssessmentPLT.wsdl"/>
+   <import importType="http://schemas.xmlsoap.org/wsdl/" location="../wsdl/loanProcessPLT.wsdl" namespace="http://docs.active-endpoints.com/sample/wsdl/loanprocess/2008/07/loanProcessPLT.wsdl"/>
+   <partnerLinks>
+      <partnerLink myRole="loanProcessor" name="LoanProcess" partnerLinkType="loanplt:LoanProcessLT"/>
+      <partnerLink name="LoanApproval" partnerLinkType="approvalplt:LoanApprovalLT" partnerRole="approver"/>
+      <partnerLink name="RiskAssessment" partnerLinkType="riskplt:RiskAssessmentLT" partnerRole="assessor"/>
+   </partnerLinks>
+   <variables>
+      <variable element="loan:loanProcessRequest" name="creditInformation"/>
+      <variable element="loan:loanApprovalResponse" name="approval"/>
+      <variable element="loan:riskAssessmentResponse" name="riskAssessment"/>
+   </variables>
+   <faultHandlers>
+      <catch faultElement="loan:errorMessage" faultName="approvews:loanProcessFault" faultVariable="error">
+         <reply faultName="loanprocess:unableToHandleRequest" name="ReplyWithApprovalFault" operation="request" partnerLink="LoanProcess" variable="error"/>
+      </catch>
+      <catch faultElement="loan:errorMessage" faultName="riskws:loanProcessFault" faultVariable="error">
+         <reply faultName="loanprocess:unableToHandleRequest" name="ReplyWithAssessmentFault" operation="request" partnerLink="LoanProcess" variable="error"/>
+      </catch>
+   </faultHandlers>
+   <flow>
+      <links>
+         <link name="receive-to-assess"/>
+         <link name="receive-to-approve"/>
+         <link name="L4"/>
+         <link name="assess-to-approver"/>
+         <link name="assess-to-approve"/>
+         <link name="assess-to-deny"/>
+         <link name="L3"/>
+         <link name="L5"/>
+      </links>
+      <receive createInstance="yes" name="ReceiveCustomerRequestForLoanAmount" operation="request" partnerLink="LoanProcess" variable="creditInformation">
+         <sources>
+            <source linkName="receive-to-assess">
+               <transitionCondition>$creditInformation/loan:amountRequested &lt; 10000</transitionCondition>
+            </source>
+            <source linkName="receive-to-approve">
+               <transitionCondition>$creditInformation/loan:amountRequested &gt;= 10000</transitionCondition>
+            </source>
+         </sources>
+      </receive>
+      <reply name="ReturnApprovalResponse" operation="request" partnerLink="LoanProcess" suppressJoinFailure="yes" variable="approval">
+         <targets>
+            <target linkName="L4"/>
+            <target linkName="L3"/>
+            <target linkName="L5"/>
+         </targets>
+      </reply>
+      <invoke inputVariable="creditInformation" name="InvokeLoanApprover" operation="approve" outputVariable="approval" partnerLink="LoanApproval">
+         <targets>
+            <target linkName="receive-to-approve"/>
+            <target linkName="assess-to-approver"/>
+         </targets>
+         <sources>
+            <source linkName="L4"/>
+         </sources>
+      </invoke>
+      <invoke inputVariable="creditInformation" name="InvokeRiskAssessor" operation="check" outputVariable="riskAssessment" partnerLink="RiskAssessment">
+         <targets>
+            <target linkName="receive-to-assess"/>
+         </targets>
+         <sources>
+            <source linkName="assess-to-approver">
+               <transitionCondition>$riskAssessment/loan:riskAssessment = 'review'</transitionCondition>
+            </source>
+            <source linkName="assess-to-approve">
+               <transitionCondition>$riskAssessment/loan:riskAssessment = 'low'</transitionCondition>
+            </source>
+            <source linkName="assess-to-deny">
+               <transitionCondition>$riskAssessment/loan:riskAssessment = 'high'</transitionCondition>
+            </source>
+         </sources>
+      </invoke>
+      <assign name="AssignApprove" suppressJoinFailure="yes">
+         <targets>
+            <target linkName="assess-to-approve"/>
+         </targets>
+         <sources>
+            <source linkName="L3"/>
+         </sources>
+         <copy>
+            <from>
+               <literal>
+                  <ns2:loanApprovalResponse xmlns:ns2="http://schemas.active-endpoints.com/sample/LoanRequest/2008/02/loanRequest.xsd">
+   <ns2:responseToLoanRequest>approved</ns2:responseToLoanRequest>
+   <ns2:responseDescription>Your excellent credit has earned you automatic approval for your loan!</ns2:responseDescription>
+</ns2:loanApprovalResponse>
+               </literal>
+            </from>
+            <to variable="approval"/>
+         </copy>
+      </assign>
+      <assign name="AssignDeny">
+         <targets>
+            <target linkName="assess-to-deny"/>
+         </targets>
+         <sources>
+            <source linkName="L5"/>
+         </sources>
+         <copy>
+            <from>
+               <literal>
+                  <loan:loanApprovalResponse>
+   <loan:responseToLoanRequest>declined</loan:responseToLoanRequest>
+   <loan:responseDescription>We regret to inform you that this application falls outside of our credit risk guidelines, and has been declined.</loan:responseDescription>
+   <loan:rejectionReason>
+      <loan:reason>lowCredit</loan:reason>
+      <loan:description>low credit score</loan:description>
+   </loan:rejectionReason>
+</loan:loanApprovalResponse>
+               </literal>
+            </from>
+            <to variable="approval"/>
+         </copy>
+      </assign>
+   </flow>
+</process>

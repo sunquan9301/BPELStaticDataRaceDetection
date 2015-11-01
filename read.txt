@@ -1,0 +1,24 @@
+1.InfoBPELFile类 获取文件的路劲
+2.获取的单个类的路径，传入SaxBPELProcess类。解析文件。得到想要的变量，活动等相关值
+3.判断变量是否为共享的变量。方法：获取flow所在的行号，在这之中的变量则为共享的，不再这之中的变量不是共享变量
+4.获取基本活动相关的信息： 方法：设置一个boolea变量用于判断是否在flow里面，如果在flow里面则存入活动，否则不存入活动
+
+	获取基本活动要考虑2种情况 一种是用sequence来安排活动序列的
+	                      另一种是用link来链接活动之间的关系的。
+	                      
+baseActivity:包括copy,invoke,receive
+	private String gId=null; //全局Id
+	private String activityType=null; //活动类型
+	private String activityName=null; //活动名
+	private String partnerLink=null;  
+	private String inputVariable=null;
+	private String outputVariable=null;
+	private String lockName;           //包含锁的名字
+	private int LogicClockOrder=-1;       //基本逻辑时钟序列号
+	private int isSynchronization=-1;   //只针对invork活动来标识是否同步，其他活动不考虑
+	private ArrayList<String> sourceLinkName = null;
+	private ArrayList<String> targetLinkName = null;
+copy 需要设计from,和to从提取输入和输出变量。 包括3个（variable,expression,partnerlink)
+invoke 分为同步和异步。异步没有输出变量。
+receive 表示的为variable.
+

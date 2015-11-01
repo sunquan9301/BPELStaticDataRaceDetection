@@ -1,0 +1,140 @@
+<process name="OrderBooking" >
+  <partnerLinks xmlns:plext="http://schemas.oracle.com/bpel/extension/partnerlink">
+    <partnerLink name="client" partnerLinkType="client:OrderBooking" myRole="OrderBookingProvider" partnerRole="OrderBookingRequester" plext:wsdlloc="OrderBooking.wsdl"/>
+    <partnerLink name="CreditRating" partnerRole="CreditRatingServiceProvider" partnerLinkType="ns2:CreditRatingService" plext:wsdlloc="http://localhost:9700/orabpel/default/CreditRatingService/CreditRatingService?wsdl"/>
+    <partnerLink myRole="RapidDistributorsRequester" name="RapidDistributors" partnerRole="RapidDistributorsProvider" partnerLinkType="ns3:RapidDistributors" plext:wsdlloc="http://localhost:9700/orabpel/default/RapidDistributors/RapidDistributors?wsdl"/>
+    <partnerLink myRole="SelectManufacturingRequester" name="SelectManufacturing" partnerRole="SelectManufacturingProvider" partnerLinkType="ns4:SelectManufacturing" plext:wsdlloc="http://localhost:9700/orabpel/default/SelectManufacturing/SelectManufacturing?wsdl"/>
+    <partnerLink myRole="POAcknowledgeRequester" name="WritePOA" partnerRole="POAcknowledgeProvider" partnerLinkType="ns6:POAcknowledge" plext:wsdlloc="http://localhost:9700/orabpel/default/POAcknowledge/POAcknowledge?wsdl"/>
+    <partnerLink myRole="OrderApprovalRequester" name="POAService" partnerRole="OrderApprovalProvider" partnerLinkType="ns8:OrderApproval" plext:wsdlloc="http://localhost:9700/orabpel/default/OrderApproval/OrderApproval?wsdl"/>
+    <partnerLink myRole="FulFillOrdersRequester" name="FulFillOrders" partnerRole="FulFillOrdersProvider" partnerLinkType="ns9:FulFillOrders" plext:wsdlloc="http://localhost:9700/orabpel/default/FulFillOrders/FulFillOrders?wsdl"/>
+  </partnerLinks>
+  <variables>
+    <variable name="inputVariable" messageType="client:OrderBookingRequestMessage"/>
+    <variable name="outputVariable" messageType="client:OrderBookingResponseMessage"/>
+    <variable name="Invoke_CR_process_InputVariable" messageType="ns2:CreditRatingServiceRequestMessage"/>
+    <variable name="Invoke_CR_process_OutputVariable" messageType="ns2:CreditRatingServiceResponseMessage"/>
+    <variable name="Invoke_RD_initiate_InputVariable" messageType="ns3:RapidDistributorsRequestMessage"/>
+    <variable name="Receive_RD_onResult_InputVariable" messageType="ns3:RapidDistributorsResponseMessage"/>
+    <variable name="Invoke_SM_initiate_InputVariable" messageType="ns4:SelectManufacturingRequestMessage"/>
+    <variable name="Receive_SM_onResult_InputVariable" messageType="ns4:SelectManufacturingResponseMessage"/>
+    <variable name="Receive_FileWrite_onResult_InputVariable" messageType="ns6:POAcknowledgeResponseMessage"/>
+    <variable name="Invoke_FileWrite_initiate_InputVariable" messageType="ns6:POAcknowledgeRequestMessage"/>
+    <variable name="InvokePOAService_initiate_InputVariable" messageType="ns8:OrderApprovalRequestMessage"/>
+    <variable name="ReceivePOAService_onResult_InputVariable" messageType="ns8:OrderApprovalResponseMessage"/>
+    <variable name="Receive_FulFillOrders_onResult_InputVariable" messageType="ns9:FulFillOrdersResponseMessage"/>
+    <variable name="Invoke_FulFillOrders_initiate_InputVariable" messageType="ns9:FulFillOrdersRequestMessage"/>
+  </variables>
+  <sequence name="main">
+    <receive name="receiveInput" partnerLink="client" portType="client:OrderBooking" operation="initiate" variable="inputVariable" createInstance="yes"/>
+    <scope name="getCreditRating">
+      <faultHandlers>
+        <catchAll>
+          <assign name="Assign_0_credit">
+            <copy>
+              <from expression="'0'"/>
+              <to variable="Invoke_CR_process_OutputVariable" part="payload" query="/ns2:rating"/>
+            </copy>
+            <copy>
+              <from expression="'Bad Credit, Rating = 0'"/>
+              <to variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:OrderInfo/ns1:OrderComments"/>
+            </copy>
+          </assign>
+        </catchAll>
+      </faultHandlers>
+      <sequence name="Sequence_1">
+        <assign name="AssignCR">
+          <copy>
+            <from variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:CustID"/>
+            <to variable="Invoke_CR_process_InputVariable" part="payload" query="/ns2:ssn"/>
+          </copy>
+        </assign>
+        <invoke name="Invoke_1" partnerLink="CreditRating" portType="ns2:CreditRatingService" operation="process" inputVariable="Invoke_CR_process_InputVariable" outputVariable="Invoke_CR_process_OutputVariable"/>
+        <assign name="Assign_Rating">
+          <copy>
+            <from expression="concat('Good Credit, Rating =',bpws:getVariableData('Invoke_CR_process_OutputVariable','payload','/ns2:rating'))"/>
+            <to variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:OrderInfo/ns1:OrderComments"/>
+          </copy>
+        </assign>
+      </sequence>
+    </scope>
+    <assign name="Initial">
+      <copy>
+        <from expression="99999"/>
+        <to variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:SupplierInfo/ns1:SupplierPrice"/>
+      </copy>
+    </assign>
+    <flow name="GetPriceQuote">
+      <sequence name="Sequence_3">
+        <assign name="Assign_RDIn">
+          <copy>
+            <from variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:OrderItems"/>
+            <to variable="Invoke_RD_initiate_InputVariable" part="payload" query="/ns1:OrderItems"/>
+          </copy>
+        </assign>
+        <invoke name="Invoke_RD" partnerLink="RapidDistributors" portType="ns3:RapidDistributors" operation="initiate" inputVariable="Invoke_RD_initiate_InputVariable"/>
+        <receive name="Receive_RD" partnerLink="RapidDistributors" portType="ns3:RapidDistributorsCallback" operation="onResult" variable="Receive_RD_onResult_InputVariable" createInstance="no"/>
+        <switch name="SelectSupplier_1">
+          <case condition="bpws:getVariableData('Receive_RD_onResult_InputVariable','payload','/ns1:SupplierInfo/ns1:SupplierPrice')  &lt; bpws:getVariableData('inputVariable','payload','/ns1:PurchaseOrder/ns1:SupplierInfo/ns1:SupplierPrice') ">
+            <!--bpelx:annotation>
+              <bpelx:pattern>Is the Rapid Distributors price less than the default price?
+              </bpelx:pattern>
+            </bpelx:annotation-->
+            <assign name="SelectRapidDistributors">
+              <copy>
+                <from expression="concat(bpws:getVariableData('inputVariable','payload','/ns1:PurchaseOrder/ns1:OrderInfo/ns1:OrderComments'), ' - Selected: Rapid Distributors')"/>
+                <to variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:OrderInfo/ns1:OrderComments"/>
+              </copy>
+              <copy>
+                <from variable="Receive_RD_onResult_InputVariable" part="payload" query="/ns1:SupplierInfo"/>
+                <to variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:SupplierInfo"/>
+              </copy>
+            </assign>
+          </case>
+        </switch>
+      </sequence>
+      <sequence name="Sequence_2">
+        <assign name="Assign_SMIn">
+          <copy>
+            <from variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:OrderItems"/>
+            <to variable="Invoke_SM_initiate_InputVariable" part="payload" query="/ns1:OrderItems"/>
+          </copy>
+        </assign>
+        <invoke name="Invoke_SM" partnerLink="SelectManufacturing" portType="ns4:SelectManufacturing" operation="initiate" inputVariable="Invoke_SM_initiate_InputVariable"/>
+        <receive name="Receive_SM" partnerLink="SelectManufacturing" portType="ns4:SelectManufacturingCallback" operation="onResult" variable="Receive_SM_onResult_InputVariable" createInstance="no"/>
+        <switch name="SelectSupplier_2">
+          <case condition="bpws:getVariableData('Receive_SM_onResult_InputVariable','payload','/ns1:SupplierInfo/ns1:SupplierPrice')  &lt; bpws:getVariableData('inputVariable','payload','/ns1:PurchaseOrder/ns1:SupplierInfo/ns1:SupplierPrice') ">
+            <!--bpelx:annotation>
+              <bpelx:pattern>Is the Select Manufacturing price less than the default price?
+              </bpelx:pattern>
+            </bpelx:annotation-->
+            <assign name="Manufacturing">
+              <copy>
+                <from expression="concat(bpws:getVariableData('inputVariable','payload','/ns1:PurchaseOrder/ns1:OrderInfo/ns1:OrderComments'), ' - Selected: Manufacturing') "/>
+                <to variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:OrderInfo/ns1:OrderComments"/>
+              </copy>
+              <copy>
+                <from variable="Receive_SM_onResult_InputVariable" part="payload" query="/ns1:SupplierInfo"/>
+                <to variable="inputVariable" part="payload" query="/ns1:PurchaseOrder/ns1:SupplierInfo"/>
+              </copy>
+            </assign>
+          </case>
+        </switch>
+      </sequence>
+    </flow>
+    
+
+
+
+
+
+
+    <assign name="AssignOutput">
+      <copy>
+        <from part="payload" variable="inputVariable"/>
+        <to part="payload" variable="outputVariable"/>
+      </copy>
+    </assign>
+     <invoke name="callbackClient" partnerLink="client" portType="client:OrderBookingCallback" operation="onResult" inputVariable="outputVariable"/>
+</sequence>
+</process>
+    

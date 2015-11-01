@@ -1,0 +1,37 @@
+
+1. <process name="BusinessTravelProcess" 
+	 <variables>
+	 </variables>
+3.   <flow>
+4. 	<sequence>
+5. 	  <invoke partnerLink="AmericanAirlines" inputVariable="FlightDetails"/>
+6. 	  <receive partnerLink="AmericanAirlines" variable="FlightResponseAA"/>
+7.	   <switch>              
+8. 	    <case condition="bpws:getVariableData('FlightResponseAA','Price') 
+9.	 			 &lt;= bpws:getVariableData('TravelResponse','Price')">
+10.	     <assign>
+11.		   <copy>
+12.		     <from variable="FlightResponseAA" />
+13.		     <to variable="TravelResponse" />
+14.		   </copy>
+15.	     </assign>
+16.	    </case>              
+17.      </switch>
+18.	</sequence>
+19.	<sequence>
+20.	  <invoke partnerLink="DeltaAirlines" inputVariable="FlightDetails"/>
+21.	  <receive partnerLink="DeltaAirlines" variable="FlightResponseDA"/>
+22.	  <switch>              
+23.	   <case condition="bpws:getVariableData('FlightResponseDA','Price') 
+24.				  &lt;= bpws:getVariableData('TravelResponse','Price')">
+25.	     <assign>
+26.		   <copy>
+27.		     <from variable="FlightResponseAA" />
+28.		     <to variable="TravelResponse" />
+29.		   </copy>
+30.	     </assign>
+31.	   </case>              
+32.      </switch>
+33.	</sequence>
+34.  </flow>
+35.</process>

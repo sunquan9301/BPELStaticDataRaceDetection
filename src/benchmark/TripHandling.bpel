@@ -1,0 +1,170 @@
+<!-- TripHandling BPEL Process [Based on template version 0.4] -->
+<process name="TripHandling" targetNamespace="http://zurich.ibm.com/bpia/bpel/tripHandling" suppressJoinFailure="yes" xmlns:thdl="http://zurich.ibm.com/bpia/bpel/tripHandling" xmlns="http://schemas.xmlsoap.org/ws/2003/03/business-process/" xmlns:flightService="http://zurich.ibm.com/bpia/bpel/flightService" xmlns:hotelService="http://zurich.ibm.com/bpia/bpel/hotelService" xmlns:global="http://zurich.ibm.com/bpia/bpel/tripHandlingGlobal">
+	<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     PARTNERLINKS 
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+	<partnerLinks>
+		<partnerLink name="client" partnerLinkType="thdl:TripHandling" myRole="TripHandlingProvider" partnerRole="TripHandlingRequester"/>
+		<partnerLink name="FlightService" partnerLinkType="flightService:FlightService" partnerRole="FlightServiceProvider" myRole="FlightServiceRequester"/>
+		<partnerLink name="HotelService" partnerLinkType="hotelService:HotelService" partnerRole="HotelServiceProvider" myRole="HotelServiceRequester"/>
+	</partnerLinks>
+	<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     VARIABLES
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+	<variables>
+		<variable name="input" messageType="thdl:TripHandlingRequestMessage"/>
+		<variable name="output" messageType="thdl:TripHandlingResponseMessage"/>
+		<variable name="FlightRequest" messageType="flightService:FlightServiceRequestMessage"/>
+		<variable name="FlightResponse" messageType="flightService:FlightServiceResponseMessage"/>
+		<variable name="HotelRequest" messageType="hotelService:HotelServiceRequestMessage"/>
+		<variable name="HotelResponse" messageType="hotelService:HotelServiceResponseMessage"/>
+		<variable name="BookingFailure" messageType="global:BookingFailureMessage"/>
+	</variables>
+	<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	 CORRELATIONS
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+	<correlationSets>
+		<correlationSet name="flight" properties="global:number"/>
+		<correlationSet name="hotel" properties="global:number"/>
+	</correlationSets>
+	<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     ORCHESTRATION LOGIC
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+	<sequence>
+		<receive name="receiveInput" partnerLink="client" portType="thdl:TripHandling" operation="initiate" variable="input" createInstance="yes"/>
+		<sequence name="main">
+			<scope>
+				<sequence>
+					<flow>
+						<sequence>
+							<assign>
+								<copy>
+									<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:departureDate">
+									</from>
+									<to variable="FlightRequest" part="payload" query="/flightService:FlightServiceRequest/flightService:departureDate"/>
+								</copy>
+								<copy>
+									<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:returnDate">
+									</from>
+									<to variable="FlightRequest" part="payload" query="/flightService:FlightServiceRequest/flightService:returnDate"/>
+								</copy>
+								<copy>
+									<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:airlineName">
+									</from>
+									<to variable="FlightRequest" part="payload" query="/flightService:FlightServiceRequest/flightService:airlineName"/>
+								</copy>
+							</assign>
+							<invoke name="flightRequest" partnerLink="FlightService" portType="flightService:FlightService" inputVariable="FlightRequest" operation="initiateFlight">
+								<correlations>
+									<correlation set="flight" initiate="yes" pattern="out"/>
+								</correlations>
+							</invoke>
+							<receive partnerLink="FlightService" portType="flightService:FlightServiceCallback" variable="FlightResponse" operation="onFlightResult" name="flightReceive">
+								<correlations>
+									<correlation set="flight" initiate="no"/>
+								</correlations>
+							</receive>
+						</sequence>
+						<sequence>
+							<assign>
+								<copy>
+									<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:departureDate">
+									</from>
+									<to variable="HotelRequest" part="payload" query="/hotelService:HotelServiceRequest/hotelService:startDate"/>
+								</copy>
+								<copy>
+									<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:returnDate">
+									</from>
+									<to variable="HotelRequest" part="payload" query="/hotelService:HotelServiceRequest/hotelService:endDate"/>
+								</copy>
+								<copy>
+									<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:hotelName">
+									</from>
+									<to variable="HotelRequest" part="payload" query="/hotelService:HotelServiceRequest/hotelService:hotelName"/>
+								</copy>
+							</assign>
+							<invoke partnerLink="HotelService" portType="hotelService:HotelService" inputVariable="HotelRequest" name="hotelRequest" operation="initiateHotel">
+								<correlations>
+									<correlation set="hotel" initiate="yes" pattern="out"/>
+								</correlations>
+							</invoke>
+							<receive partnerLink="HotelService" portType="hotelService:HotelServiceCallback" variable="HotelResponse" operation="onHotelResult" name="hotelReceive">
+								<correlations>
+									<correlation set="hotel" initiate="no"/>
+								</correlations>
+							</receive>
+						</sequence>
+					</flow>
+				</sequence>
+			</scope>
+		</sequence>
+		<switch>
+			<case condition="bpws:getVariableData('HotelResponse', 'payload', '/hotelService:HotelServiceResponse/booked') = 'true' and bpws:getVariableData('FlightResponse', 'payload', '/flightService:FlightServiceResponse/booked') = 'true'">
+				<sequence>
+					<assign>
+						<copy>
+							<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:departureDate">
+							</from>
+							<to variable="output" part="payload" query="/thdl:TripHandlingResponse/thdl:departureDate"/>
+						</copy>
+						<copy>
+							<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:returnDate">
+							</from>
+							<to variable="output" part="payload" query="/thdl:TripHandlingResponse/thdl:returnDate"/>
+						</copy>
+						<copy>
+							<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:airlineName">
+							</from>
+							<to variable="output" part="payload" query="/thdl:TripHandlingResponse/thdl:airlineName"/>
+						</copy>
+						<copy>
+							<from variable="input" part="payload" query="/thdl:TripHandlingRequest/thdl:hotelName">
+							</from>
+							<to variable="output" part="payload" query="/thdl:TripHandlingResponse/thdl:hotelName"/>
+						</copy>
+						<copy>
+							<from expression="true()">
+							</from>
+							<to variable="output" part="payload" query="/thdl:TripHandlingResponse/thdl:booked"/>
+						</copy>
+					</assign>
+					<invoke name="sendBack" partnerLink="client" portType="thdl:TripHandlingCallback" operation="onResult" inputVariable="output"/>
+				</sequence>
+			</case>
+			<otherwise>
+				<switch>
+					<case condition="bpws:getVariableData('HotelResponse', 'payload', '/hotelService:HotelServiceResponse/booked') = 'false'">
+						<sequence>
+							<assign>
+								<copy>
+									<from expression="string('cancel')">
+									</from>
+									<to variable="BookingFailure" part="payload" query="/global:BookingFailure"/>
+								</copy>
+							</assign>
+							<invoke operation="cancelFlight" partnerLink="FlightService" portType="flightService:FlightService" inputVariable="BookingFailure">
+							</invoke>
+						</sequence>
+					</case>
+					
+					<case condition="bpws:getVariableData('FlightResponse', 'payload', '/flightService:FlightServiceResponse/booked') = 'false'">
+						<sequence>
+							<assign>
+								<copy>
+									<from expression="string('cancel')">
+									</from>
+									<to variable="BookingFailure" part="payload" query="/global:BookingFailure"/>
+								</copy>
+							</assign>
+							<invoke operation="cancelFlight" partnerLink="HotelService" portType="hotelService:HotelService" inputVariable="BookingFailure">
+							</invoke>
+						</sequence>
+					</case>
+					<otherwise>
+						<empty/>
+					</otherwise>
+				</switch>
+			</otherwise>
+		</switch>
+	</sequence>
+</process>

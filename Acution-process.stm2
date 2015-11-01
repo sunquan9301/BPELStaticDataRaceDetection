@@ -1,0 +1,29 @@
+;orderBook.bpel
+(declare-const OG15 Int)
+(declare-const OG13 Int)
+(declare-const OG2 Int)
+(declare-const OG1 Int)
+(declare-const OG7 Int)
+(declare-const OG9 Int)
+
+
+(assert(< OG13 OG15))
+(assert(< OG7 OG9))
+
+
+
+
+(push)
+(check-sat)
+(assert(= OG13 OG2))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG7 OG1))
+(get-model)
+(pop)
+
+

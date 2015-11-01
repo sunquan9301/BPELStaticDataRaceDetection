@@ -1,0 +1,86 @@
+;orderBook.bpel
+(declare-const OG3 Int)
+(declare-const OG6 Int)
+(declare-const OG5 Int)
+(declare-const OG23 Int)
+(declare-const OG18 Int)
+(declare-const OG26 Int)
+(declare-const OG25 Int)
+(declare-const OG20 Int)
+(declare-const OG21 Int)
+(declare-const OG11 Int)
+(declare-const OG8 Int)
+(declare-const OG10 Int)
+
+
+(assert(< OG3 OG5))
+(assert(< OG6 OG8))
+(assert(< OG5 OG6))
+(assert(< OG5 OG10))
+(assert(< OG23 OG25))
+(assert(< OG18 OG20))
+(assert(< OG25 OG26))
+(assert(< OG20 OG21))
+(assert(< OG21 OG23))
+(assert(< OG8 OG10))
+(assert(< OG10 OG11))
+
+
+
+
+(push)
+(check-sat)
+(assert(= OG3 OG25))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG3 OG26))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG18 OG10))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG18 OG11))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG26 OG10))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG26 OG11))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG25 OG10))
+(get-model)
+(pop)
+
+
+(push)
+(check-sat)
+(assert(= OG25 OG11))
+(get-model)
+(pop)
+
+
